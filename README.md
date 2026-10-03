@@ -15,7 +15,7 @@ let it auto-refresh every minute while you work.
 - **Models** — a stacked daily chart (tokens or money) and a per-model breakdown with in / out tokens, cost and share.
 - **Parallel** — how many sessions you had running at once, today as lanes and over time as bars, with your all-time record.
 - **Ranges** — All / 30d / 7d / Today.
-- **Currency** — click a money tile to flip between USD and your local currency, auto-detected from your browser region (27 currencies, all in Anthropic-supported regions). Rates are an editable snapshot in `template.html`.
+- **Currency** — click a money tile to flip between USD and your local currency, auto-detected from your time zone, with the browser language as a fallback (27 currencies, all in Anthropic-supported regions; anywhere else shows USD). Rates are an editable snapshot in `template.html`.
 
 ## Quick start
 
