@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Claude Code Stats</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #262624;
+        --card: #2b2a27;
+        --line: rgba(255, 255, 255, 0.1);
+        --tile: rgba(255, 255, 255, 0.05);
+        --ghost: rgba(255, 255, 255, 0.08);
+        --txt: #f5f4ef;
+        --muted: #a3a29b;
+        --faint: #7c7b75;
+        --accent: 15 63%;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: var(--page);
+        color: var(--txt);
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+      }
+      .card {
+        width: 100%;
+        max-width: 480px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 8px 12px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+      }
+      .seg {
+        display: flex;
+        align-items: center;
+      }
+      .seg button {
+        position: relative;
+        height: 30px;
+        padding: 0 10px;
+        font:
+          500 14px system-ui,
+          sans-serif;
+        color: var(--muted);
+        background: none;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .seg button.on {
+        color: var(--txt);
+        background: var(--ghost);
+      }
+      .seg button:hover {
+        color: var(--txt);
+      }
+      .seg button.new::after {
+        content: "";
+        position: absolute;
+        top: 5px;
+        right: 3px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: hsl(var(--accent) 64%);
+      }
+      .tile.cur {
+        cursor: pointer;
+      }
+      .tile.cur:hover {
+        background: var(--ghost);
+      }
+      .flex1 {
+        flex: 1;
+      }
+      .body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+      }
+      .tile {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px;
+        border-radius: 5px;
+        background: var(--tile);
+        min-width: 0;
+      }
+      .tile .k {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tile .v {
+        font-size: 15px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tile .v.sm {
+        font-size: 12px;
+        font-weight: 600;
+        padding-top: 2px;
+      }
+      .heat {
+        display: flex;
+        gap: 3px;
+        width: 100%;
+        margin-top: 4px;
+      }
+      .heat .col {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+      }
+      .heat .c {
+        aspect-ratio: 1;
+        border-radius: 2px;
+        background: var(--tile);
+      }
+      .heat .c.f {
+        background: none;
+      }
+      .foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        padding-top: 4px;
+      }
+      .foot .u {
+        color: var(--faint);
+        white-space: nowrap;
+      }
+      .chart {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: 160px auto;
+        column-gap: 11px;
+        row-gap: 8px;
+        padding: 8px 10px 5px 3px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .yax {
+        display: flex;
+        flex-direction: column-reverse;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+      .yax span {
+        height: 0;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+      }
+      .plot {
+        display: flex;
+        min-width: 0;
+        height: 160px;
+      }
+      .bar {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        height: 100%;
+        cursor: default;
+      }
+      .bar i {
+        display: block;
+        width: 72%;
+        flex-shrink: 0;
+      }
+      .bar i:last-child {
+        border-radius: 2px 2px 0 0;
+      }
+      .bar:hover i {
+        filter: brightness(0.9);
+      }
+      .xax {
+        grid-column: 2;
+        display: flex;
+        min-width: 0;
+      }
+      .xax span {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        justify-content: center;
+        white-space: nowrap;
+      }
+      .rows {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+      }
+      .row .sq {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+      .row .nm {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row .io {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .row .pc {
+        width: 56px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .more {
+        align-self: flex-start;
+        font-size: 12px;
+        color: var(--muted);
+        background: none;
+        border: 0;
+        cursor: pointer;
+        padding: 2px 0;
+      }
+      .more:hover {
+        color: var(--txt);
+      }
+      .tip {
+        position: fixed;
+        pointer-events: none;
+        background: #1f1e1c;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+        color: var(--txt);
+        display: none;
+        z-index: 9;
+        max-width: 240px;
+      }
+      .tip b {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .tip span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .tip span::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--dot);
+      }
+      .empty {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .subl {
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .unitbar {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .unitbar .seg button {
+        height: 24px;
+        font-size: 12px;
+        padding: 0 8px;
+      }
+      .line {
+        cursor: pointer;
+      }
+      .line:hover {
+        color: var(--txt);
+      }
+      .lanes {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 4px 0;
+      }
+      .lane {
+        display: grid;
+        grid-template-columns: 118px minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+      }
+      .lane .ln {
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .lane .tr {
+        position: relative;
+        height: 12px;
+        border-radius: 3px;
+        background: var(--tile);
+        overflow: hidden;
+      }
+      .lane .tr i {
+        position: absolute;
+        top: 0;
+        height: 100%;
+      }
+      .lane.at .ln {
+        color: var(--muted);
+      }
+      .now {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #f5f4ef;
+        opacity: 0.7;
+      }
+      .lx {
+        display: grid;
+        grid-template-columns: 118px minmax(0, 1fr);
+        gap: 8px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .lx .ax {
+        position: relative;
+        height: 14px;
+      }
+      .lx .ax span {
+        position: absolute;
+        transform: translateX(-50%);
+        white-space: nowrap;
+      }
+      .rec {
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="card">
+      <div class="head">
+        <div class="seg" id="tabs">
+          <button data-t="overview" class="on">Overview</button
+          ><button data-t="models">Models</button
+          ><button data-t="parallel" class="new" title="New">Parallel</button>
+        </div>
+        <span class="flex1"></span>
+        <div class="seg" id="ranges">
+          <button data-r="all" class="on">All</button><button data-r="30d">30d</button
+          ><button data-r="7d">7d</button
+          ><button data-r="today" class="new" title="New">Today</button>
+        </div>
+      </div>
+      <div class="body" id="body"></div>
+    </div>
+    <div class="tip" id="tip"></div>
+    <script>
+      let D = __DATA__;
+      const BOOKS = [
+        ["The Little Prince", 22e3],
+        ["Animal Farm", 39e3],
+        ["The Great Gatsby", 62e3],
+        ["Harry Potter and the Philosopher's Stone", 103e3],
+        ["The Hobbit", 123e3],
+        ["Pride and Prejudice", 156e3],
+        ["Dune", 244e3],
+        ["Moby-Dick", 268e3],
+        ["The Lord of the Rings", 576e3],
+        ["War and Peace", 73e4],
+      ];
+      const pick = Math.random();
+      let tab = "overview",
+        range = "all",
+        showAll = false,
+        unit = "tokens";
+      let day, STREAK, ALL, TODAYTOK;
+      function key(dt) {
+        return (
+          dt.getFullYear() +
+          "-" +
+          String(dt.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(dt.getDate()).padStart(2, "0")
+        );
+      }
+      function todayDate() {
+        const [y, m, d] = D.today.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      }
+      function fromKey() {
+        const n = { all: null, "30d": 30, "7d": 7, today: 1 }[range];
+        if (!n) return null;
+        const t = todayDate();
+        t.setDate(t.getDate() - (n - 1));
+        return key(t);
+      }
+      // USD -> local currency. Rates are an approximate snapshot; edit freely. Covers Anthropic's main supported regions.
+      const CUR = {
+        USD: [1, "$"],
+        EUR: [0.92, "\u20ac"],
+        GBP: [0.79, "\u00a3"],
+        JPY: [150, "\u00a5"],
+        CAD: [1.36, "CA$"],
+        AUD: [1.52, "A$"],
+        HKD: [7.8, "HK$"],
+        SGD: [1.35, "S$"],
+        INR: [83, "\u20b9"],
+        CHF: [0.88, "CHF "],
+        SEK: [10.5, "kr "],
+        NOK: [10.7, "kr "],
+        DKK: [6.9, "kr "],
+        PLN: [4.0, "z\u0142 "],
+        NZD: [1.65, "NZ$"],
+        BRL: [5.0, "R$"],
+        MXN: [17, "MX$"],
+        ZAR: [18.5, "R "],
+        AED: [3.67, "AED "],
+        SAR: [3.75, "SAR "],
+        ILS: [3.7, "\u20aa"],
+        TRY: [34, "\u20ba"],
+        KRW: [1330, "\u20a9"],
+        TWD: [32, "NT$"],
+        THB: [35, "\u0e3f"],
+        MYR: [4.7, "RM "],
+        PHP: [57, "\u20b1"],
+        IDR: [15800, "Rp "],
+      };
+      // "Local" currency for the viewer, guessed from their browser region.
+      // The list of currencies is the code's to edit; the UI auto-picks the local one.
+      const REGION_CUR = {
+        US: "USD",
+        AT: "EUR",
+        BE: "EUR",
+        DE: "EUR",
+        ES: "EUR",
+        FI: "EUR",
+        FR: "EUR",
+        GR: "EUR",
+        IE: "EUR",
+        IT: "EUR",
+        NL: "EUR",
+        PT: "EUR",
+        GB: "GBP",
+        JP: "JPY",
+        CA: "CAD",
+        AU: "AUD",
+        HK: "HKD",
+        SG: "SGD",
+        IN: "INR",
+        CH: "CHF",
+        SE: "SEK",
+        NO: "NOK",
+        DK: "DKK",
+        PL: "PLN",
+        NZ: "NZD",
+        BR: "BRL",
+        MX: "MXN",
+        ZA: "ZAR",
+        AE: "AED",
+        SA: "SAR",
+        IL: "ILS",
+        TR: "TRY",
+        KR: "KRW",
+        TW: "TWD",
+        TH: "THB",
+        MY: "MYR",
+        PH: "PHP",
+        ID: "IDR",
+      };
+      function guessLocalCur() {
+        try {
+          let region = "";
+          try {
+            region = new Intl.Locale(navigator.language).region || "";
+          } catch (e) {}
+          if (!region) region = (navigator.language || "").split("-")[1] || "";
+          const c = REGION_CUR[region.toUpperCase()];
+          return CUR[c] ? c : "USD";
+        } catch (e) {
+          return "USD";
+        }
+      }
+      const LOCAL_CUR = guessLocalCur();
+      let cur = (() => {
+        try {
+          const c = localStorage.getItem("cc_cur");
+          return CUR[c] ? c : LOCAL_CUR;
+        } catch (e) {
+          return LOCAL_CUR;
+        }
+      })();
+      function setCur(c) {
+        cur = c;
+        try {
+          localStorage.setItem("cc_cur", c);
+        } catch (e) {}
+        render();
+      }
+      function fmt(c) {
+        const a = CUR[cur] || CUR.USD;
+        const x = c * a[0];
+        let s;
+        if (x >= 1e6) s = (x / 1e6).toFixed(1) + "M";
+        else if (x >= 1e3) s = (x / 1e3).toFixed(1) + "k";
+        else if (x >= 100) s = Math.round(x).toString();
+        else if (x >= 10) s = x.toFixed(1);
+        else s = x.toFixed(2);
+        return a[1] + s;
+      }
+      function money(c) {
+        return fmt(c);
+      }
+      function usd(c) {
+        return fmt(c) + " " + cur;
+      }
+      function sr(n) {
+        if (n >= 999950000) return (n / 1e9).toFixed(1) + "B";
+        if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+        if (n >= 1e3) return Math.round(n / 1e3) + "k";
+        return String(Math.round(n));
+      }
+      function num(n) {
+        return n.toLocaleString("en-US");
+      }
+      function mname(m) {
+        const x = m.replace(/^claude-/, "").split("-");
+        const fam = x[0].charAt(0).toUpperCase() + x[0].slice(1);
+        const v = x.slice(1).filter((s) => /^\d+$/.test(s));
+        return fam + (v.length ? " " + v.join(".") : "");
+      }
+      function color(i) {
+        return "hsl(var(--accent) " + Math.min(88, 58 + 7 * i) + "%)";
+      }
+      function ranged() {
+        const f = fromKey(),
+          ds = D.days.filter((x) => !f || x.d >= f);
+        let s = 0,
+          m = 0,
+          t = 0,
+          tok = 0;
+        const bm = new Map(),
+          u = new Map(),
+          cm = new Map(),
+          h = Array(24).fill(0);
+        for (const x of ds) {
+          s += x.s;
+          m += x.m;
+          t += x.t;
+          tok += x.tok;
+          for (const [k, v] of Object.entries(x.bm)) bm.set(k, (bm.get(k) || 0) + v);
+          for (const [k, v] of Object.entries(x.u)) {
+            const a = u.get(k) || [0, 0, 0, 0];
+            for (let i = 0; i < 4; i++) a[i] += v[i];
+            u.set(k, a);
+          }
+          for (const [k, v] of Object.entries(x.cm || {})) cm.set(k, (cm.get(k) || 0) + v);
+          x.h.forEach((c, i) => (h[i] += c));
+        }
+        const total = [...bm.values()].reduce((a, b) => a + b, 0);
+        const models = [...bm.entries()]
+          .map(([k, v]) => ({ k, v, u: u.get(k) || [0, 0, 0, 0], c: cm.get(k) || 0 }))
+          .sort((a, b) => b.v - a.v)
+          .filter((x) => x.v >= total * 5e-4);
+        if (range === "today") {
+          D.todayh.forEach((x, i) => (h[i] = x.m));
+        }
+        const pk = Math.max(...h);
+        return {
+          ds,
+          s,
+          m,
+          t,
+          tok: total,
+          models,
+          peak: pk > 0 ? h.indexOf(pk) : null,
+          active: ds.filter((x) => x.m > 0).length,
+        };
+      }
+      function tiles(r) {
+        const fav = r.models[0] ? mname(r.models[0].k) : "\u2014";
+        const cost = r.ds.reduce((a, x) => a + (x.c || 0), 0),
+          saved = r.ds.reduce((a, x) => a + (x.sv || 0), 0);
+        const T = [
+          ["Sessions", num(r.s)],
+          ["Messages", num(r.m)],
+          ["Total tokens", sr(r.tok)],
+          ["Cache saved", usd(saved), 1],
+          ["API value", usd(cost), 1],
+          ["Favorite model", fav],
+        ];
+        return (
+          '<div class="tiles">' +
+          T.map(
+            (t) =>
+              '<div class="tile' +
+              (t[2] ? " cur" : "") +
+              '"' +
+              (t[2] ? ' title="Click to switch USD / ' + LOCAL_CUR + '"' : "") +
+              '><span class="k">' +
+              t[0] +
+              '</span><span class="v">' +
+              t[1] +
+              "</span></div>",
+          ).join("") +
+          "</div>"
+        );
+      }
+      function heat() {
+        const td = todayDate();
+        const end = new Date(td);
+        end.setDate(end.getDate() + (6 - end.getDay()));
+        const st = new Date(end);
+        st.setDate(end.getDate() - 181);
+        const cells = [];
+        let mx = 0;
+        for (let i = 0; i < 182; i++) {
+          const dt = new Date(st);
+          dt.setDate(st.getDate() + i);
+          const k = key(dt),
+            c = (day.get(k) || { m: 0 }).m;
+          mx = Math.max(mx, c);
+          cells.push({ k, c, fut: dt > td });
+        }
+        let h = '<div class="heat">';
+        for (let w = 0; w < 26; w++) {
+          h += '<div class="col">';
+          for (let d = 0; d < 7; d++) {
+            const x = cells[w * 7 + d];
+            if (x.fut) {
+              h += '<div class="c f"></div>';
+              continue;
+            }
+            const t = mx ? x.c / mx : 0,
+              L = t === 0 ? null : 80 - Math.ceil(t * 4) * 8;
+            h +=
+              '<div class="c" data-tip="' +
+              x.k +
+              "|" +
+              x.c +
+              '"' +
+              (L === null ? "" : ' style="background:hsl(var(--accent) ' + L + '%)"') +
+              "></div>";
+          }
+          h += "</div>";
+        }
+        return h + "</div>";
+      }
+      function ticks(mx) {
+        if (mx <= 0) return [0];
+        const t = 10 ** Math.floor(Math.log10(mx / 6));
+        let best = null;
+        for (const n of [1, 2, 5, 10, 20, 50]) {
+          const st = Math.max(1, n * t),
+            k = Math.ceil(mx / st);
+          if (k > 6) continue;
+          const top = st * k;
+          if (
+            !best ||
+            top < best.top ||
+            (top === best.top && Math.abs(k - 4) < Math.abs(best.k - 4))
+          )
+            best = { st, k, top };
+        }
+        return Array.from({ length: best.k + 1 }, (_, i) => i * best.st);
+      }
+      function models(r) {
+        const keys = r.models.map((x) => x.k);
+        let cols;
+        if (range === "today")
+          cols = D.todayh.map((x, i) => ({
+            label:
+              i % 6 === 0
+                ? i === 0
+                  ? "12 AM"
+                  : i < 12
+                    ? i + " AM"
+                    : i === 12
+                      ? "12 PM"
+                      : i - 12 + " PM"
+                : "",
+            tipLabel: String(i).padStart(2, "0") + ":00",
+            bm: x.bm,
+            cm: x.cm || {},
+          }));
+        else
+          cols = r.ds.map((x, i, a) => ({
+            label: "",
+            tipLabel: new Date(x.d + "T00:00").toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            bm: x.bm,
+            cm: x.cm || {},
+          }));
+        if (range !== "today") {
+          const every = Math.max(1, Math.ceil(cols.length / 5));
+          cols.forEach((c, i) => {
+            if (i % every === 0) c.label = c.tipLabel;
+          });
+        }
+        const val = (s) => (unit === "usd" ? s.usd : s.v);
+        let mx = 0;
+        cols.forEach((c) => {
+          c.seg = keys
+            .map((k, i) => ({ k, i, v: c.bm[k] || 0, usd: c.cm[k] || 0 }))
+            .filter((s) => s.v > 0);
+          c.sum = c.seg.reduce((a, s) => a + val(s), 0);
+          c.usdSum = c.seg.reduce((a, s) => a + s.usd, 0);
+          mx = Math.max(mx, c.sum);
+        });
+        const tk = ticks(mx),
+          top = tk[tk.length - 1] || 1;
+        let h =
+          '<div class="unitbar"><div class="seg"><button data-u="tokens"' +
+          (unit === "tokens" ? ' class="on"' : "") +
+          '>Tokens</button><button data-u="usd"' +
+          (unit === "usd" ? ' class="on"' : "") +
+          ">" +
+          cur +
+          '</button></div></div><div class="chart" aria-label="Daily usage by model"><div class="yax">' +
+          tk.map((t) => "<span>" + (unit === "usd" ? money(t) : sr(t)) + "</span>").join("") +
+          '</div><div class="plot">';
+        cols.forEach((c, ci) => {
+          h +=
+            '<div class="bar" data-col="' +
+            ci +
+            '">' +
+            c.seg
+              .map(
+                (s) =>
+                  '<i style="height:' +
+                  (val(s) / top) * 100 +
+                  "%;background:" +
+                  color(s.i) +
+                  '"></i>',
+              )
+              .join("") +
+            "</div>";
+        });
+        h +=
+          '</div><div class="xax">' +
+          cols.map((c) => "<span>" + c.label + "</span>").join("") +
+          "</div></div>";
+        const list = showAll ? r.models : r.models.slice(0, 6);
+        h +=
+          '<div class="rows">' +
+          (r.models.length ? "" : '<span class="empty">No model usage in this range</span>') +
+          list
+            .map(
+              (x, i) =>
+                '<div class="row"><span class="sq" style="background:' +
+                color(i) +
+                '"></span><span class="nm">' +
+                mname(x.k) +
+                '</span><span class="io">' +
+                sr(x.u[0]) +
+                " in \u00b7 " +
+                sr(x.u[1]) +
+                " out (" +
+                usd(x.c) +
+                ')</span><span class="pc">' +
+                ((x.v / (r.tok || 1)) * 100).toFixed(1) +
+                "%</span></div>",
+            )
+            .join("") +
+          (r.models.length > 6
+            ? '<button class="more" id="more">' +
+              (showAll ? "Show less" : "Show " + (r.models.length - 6) + " more") +
+              "</button>"
+            : "") +
+          "</div>";
+        window._cols = cols;
+        window._keys = keys;
+        return h;
+      }
+      function derive() {
+        day = new Map(D.days.map((x) => [x.d, x]));
+        STREAK = (() => {
+          const s = new Set(D.days.filter((x) => x.m > 0).map((x) => x.d));
+          let n = 0,
+            d = todayDate();
+          while (s.has(key(d))) {
+            n++;
+            d.setDate(d.getDate() - 1);
+          }
+          return n;
+        })();
+        ALL = (() => {
+          let m = 0;
+          D.days.forEach((x) => {
+            m += x.m;
+          });
+          const act = D.days.filter((x) => x.m > 0).length;
+          return { avg: act ? m / act : 0 };
+        })();
+        TODAYTOK = D.todayh.reduce((a, x) => a + Object.values(x.bm).reduce((p, q) => p + q, 0), 0);
+      }
+      derive();
+      const ACTS = [
+        ["a TED talk", 18],
+        ["listening to Abbey Road", 47],
+        ["a yoga class", 60],
+        ["a World Cup soccer match", 90],
+        ["a half marathon (average time)", 120],
+        ["the movie Inception", 148],
+        ["watching Titanic", 195],
+        ["a transatlantic flight", 420],
+      ];
+      function times(x) {
+        x = Math.floor(x);
+        return x >= 2 ? num(x) : null;
+      }
+      function L(f) {
+        return (r) => {
+          const s = f(r);
+          return s && s.indexOf("null") < 0 ? s : null;
+        };
+      }
+      const LINES = [
+        ...BOOKS.map((b) =>
+          L((r) => {
+            const x = times(r.tok / b[1]);
+            return x && "You\u2019ve used ~" + x + "\u00d7 more tokens than " + b[0] + ".";
+          }),
+        ),
+        ...ACTS.map((a) =>
+          L((r) => {
+            const x = times((D.longestH * 60) / a[1]);
+            return x && "Your longest session ran ~" + x + "\u00d7 longer than " + a[0] + ".";
+          }),
+        ),
+        L((r) => {
+          const x = times(D.activeH / 8);
+          return (
+            x &&
+            "You\u2019ve spent ~" +
+              x +
+              "\u00d7 more time with Claude Code than one eight-hour working day."
+          );
+        }),
+        L((r) => {
+          const x = times(TODAYTOK / 22e3);
+          return (
+            x &&
+            "Today alone, you\u2019ve used ~" + x + "\u00d7 more tokens than The Little Prince."
+          );
+        }),
+        L((r) => {
+          const x = times(STREAK);
+          return x && "You\u2019ve shown up " + x + " days in a row.";
+        }),
+      ];
+      const LSK = "cc_lines_v1";
+      let lineId = null;
+      function store() {
+        try {
+          return JSON.parse(localStorage.getItem(LSK)) || {};
+        } catch (e) {
+          return {};
+        }
+      }
+      function save(o) {
+        try {
+          localStorage.setItem(LSK, JSON.stringify(o));
+        } catch (e) {}
+      }
+      function shuffle(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+      let MEM = null;
+      function advance() {
+        if (!MEM) MEM = store();
+        const o = MEM;
+        let deck = Array.isArray(o.deck) && o.deck.length === LINES.length ? o.deck : null,
+          i = typeof o.i === "number" ? o.i : 0;
+        if (!deck || i >= deck.length) {
+          const last = o.last;
+          deck = shuffle([...LINES.keys()]);
+          if (deck[0] === last) deck.push(deck.shift());
+          i = 0;
+        }
+        lineId = deck[i];
+        MEM = { deck, i: i + 1, last: lineId };
+        save(MEM);
+      }
+      function lineText(r) {
+        if (lineId === null) advance();
+        for (let k = 0; k < LINES.length; k++) {
+          const t = LINES[lineId](r);
+          if (t) return t;
+          advance();
+        }
+        return "";
+      }
+      function parallel(r) {
+        const today = range === "today";
+        const ds = r.ds;
+        const most = today ? Math.max(0, ...D.todayConc) : Math.max(0, ...ds.map((x) => x.p || 0));
+        const T = [
+          ["Running now", String(D.running)],
+          ["Most at once", String(most)],
+          [
+            "Record",
+            D.record.n +
+              " \u00b7 " +
+              new Date(D.record.at.replace(" ", "T")).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              }),
+            1,
+          ],
+        ];
+        let h =
+          '<div class="tiles">' +
+          T.map(
+            (t) =>
+              '<div class="tile"><span class="k">' +
+              t[0] +
+              '</span><span class="v' +
+              (t[2] ? " sm" : "") +
+              '">' +
+              t[1] +
+              "</span></div>",
+          ).join("") +
+          "</div>";
+        if (today) {
+          const mx = Math.max(1, ...D.todayConc),
+            W = 100 / 144;
+          h +=
+            '<div class="lanes"><div class="lane at"><span class="ln">At once</span><div class="tr">' +
+            D.todayConc
+              .map((c, i) =>
+                c
+                  ? '<i style="left:' +
+                    i * W +
+                    "%;width:" +
+                    W +
+                    "%;background:hsl(var(--accent) " +
+                    (80 - Math.ceil((c / mx) * 4) * 8) +
+                    '%)" data-tip="AT|' +
+                    i +
+                    "|" +
+                    c +
+                    '"></i>'
+                  : "",
+              )
+              .join("") +
+            '<span class="now" style="left:' +
+            D.nowIdx * W +
+            '%"></span></div></div>';
+          D.lanes.forEach((l) => {
+            h +=
+              '<div class="lane"><span class="ln" title="' +
+              l.t.replace(/"/g, "") +
+              '">' +
+              l.t.replace(/</g, "&lt;") +
+              '</span><div class="tr">' +
+              l.s
+                .map(
+                  (s) =>
+                    '<i style="left:' +
+                    s * W +
+                    "%;width:" +
+                    W +
+                    '%;background:hsl(var(--accent) 64%)"></i>',
+                )
+                .join("") +
+              '<span class="now" style="left:' +
+              D.nowIdx * W +
+              '%"></span></div></div>';
+          });
+          h +=
+            '</div><div class="lx"><div></div><div class="ax">' +
+            [0, 6, 12, 18]
+              .map(
+                (k) =>
+                  '<span style="left:' +
+                  (k / 24) * 100 +
+                  '%">' +
+                  (k === 0 ? "12 AM" : k < 12 ? k + " AM" : k === 12 ? "12 PM" : k - 12 + " PM") +
+                  "</span>",
+              )
+              .join("") +
+            "</div></div>" +
+            (D.lanes.length ? "" : '<span class="empty">No sessions yet today</span>');
+        } else {
+          const cols = ds.map((x) => ({
+            tipLabel: new Date(x.d + "T00:00").toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            p: x.p || 0,
+          }));
+          const every = Math.max(1, Math.ceil(cols.length / 5));
+          const tk = ticks(Math.max(1, most)).map(Math.round),
+            top = tk[tk.length - 1] || 1;
+          h +=
+            '<div class="chart"><div class="yax">' +
+            tk.map((t) => "<span>" + t + "</span>").join("") +
+            '</div><div class="plot">' +
+            cols
+              .map(
+                (c) =>
+                  '<div class="bar" data-tip="P|' +
+                  c.tipLabel +
+                  "|" +
+                  c.p +
+                  '"><i style="height:' +
+                  (c.p / top) * 100 +
+                  '%;background:hsl(var(--accent) 64%)"></i></div>',
+              )
+              .join("") +
+            '</div><div class="xax">' +
+            cols
+              .map((c, i) => "<span>" + (i % every === 0 ? c.tipLabel : "") + "</span>")
+              .join("") +
+            "</div></div>";
+        }
+        h +=
+          '<span class="rec">Your record: ' +
+          D.record.n +
+          " sessions running at the same time, " +
+          new Date(D.record.at.replace(" ", "T")).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }) +
+          ".</span>";
+        window._cols = null;
+        return h;
+      }
+      function render() {
+        const r = ranged(),
+          B = document.getElementById("body");
+        B.innerHTML =
+          tab === "overview"
+            ? tiles(r) +
+              heat() +
+              '<div class="foot"><span class="line" id="line" title="Click for another">' +
+              lineText(r) +
+              "</span></div>"
+            : tab === "models"
+              ? models(r)
+              : parallel(r);
+        const ln = document.getElementById("line");
+        if (ln)
+          ln.onclick = () => {
+            advance();
+            render();
+          };
+        B.querySelectorAll("[data-u]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              unit = b.dataset.u;
+              render();
+            }),
+        );
+        B.querySelectorAll(".tile.cur").forEach(
+          (t) => (t.onclick = () => setCur(cur === LOCAL_CUR ? "USD" : LOCAL_CUR)),
+        );
+        const m = document.getElementById("more");
+        if (m)
+          m.onclick = () => {
+            showAll = !showAll;
+            render();
+          };
+      }
+      function seg(id, attr, set) {
+        document
+          .getElementById(id)
+          .querySelectorAll("button")
+          .forEach(
+            (b) =>
+              (b.onclick = () => {
+                document
+                  .getElementById(id)
+                  .querySelectorAll("button")
+                  .forEach((x) => x.classList.toggle("on", x === b));
+                set(b.dataset[attr]);
+                render();
+              }),
+          );
+      }
+      seg("tabs", "t", (v) => (tab = v));
+      seg("ranges", "r", (v) => (range = v));
+      const tip = document.getElementById("tip");
+      document.addEventListener("mousemove", (e) => {
+        const c = e.target.closest("[data-tip]"),
+          b = e.target.closest(".bar");
+        let html = "";
+        if (c) {
+          const p = c.dataset.tip.split("|");
+          if (p[0] === "AT") {
+            const i = +p[1];
+            html =
+              "<b>" +
+              String(Math.floor(i / 6)).padStart(2, "0") +
+              ":" +
+              String((i % 6) * 10).padStart(2, "0") +
+              " \u2014 " +
+              p[2] +
+              " at once</b>";
+          } else if (p[0] === "P") {
+            html = "<b>" + p[1] + " \u2014 " + p[2] + " at once</b>";
+          } else {
+            html =
+              "<b>" +
+              new Date(p[0] + "T00:00").toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              }) +
+              " \u2014 " +
+              num(+p[1]) +
+              "</b>";
+          }
+        } else if (b && window._cols) {
+          const col = window._cols[+b.dataset.col];
+          html =
+            "<b>" +
+            col.tipLabel +
+            " \u2014 " +
+            usd(col.usdSum) +
+            "</b>" +
+            col.seg
+              .map(
+                (s) =>
+                  '<span style="--dot:' +
+                  color(s.i) +
+                  '">' +
+                  mname(s.k) +
+                  ": " +
+                  sr(s.v) +
+                  " (" +
+                  usd(s.usd) +
+                  ")</span>",
+              )
+              .join("");
+        }
+        if (!html) {
+          tip.style.display = "none";
+          return;
+        }
+        tip.innerHTML = html;
+        tip.style.display = "block";
+        tip.style.left = Math.min(innerWidth - tip.offsetWidth - 8, e.clientX + 12) + "px";
+        tip.style.top = e.clientY + 14 + "px";
+      });
+      window.CCS_UPDATE = function (x) {
+        if (!x || x.computed === D.computed) return;
+        D = x;
+        derive();
+        render();
+      };
+      setInterval(() => {
+        const s = document.createElement("script");
+        s.src = "stats-data.js?t=" + Date.now();
+        s.onload = s.onerror = () => s.remove();
+        document.head.appendChild(s);
+      }, 60000);
+      render();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+board.html
+stats-data.js
+.counter-cache.json
+.counter-cache.json.tmp
+__pycache__/
+*.pyc
